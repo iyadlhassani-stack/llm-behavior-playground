@@ -6,12 +6,13 @@ This repository is a structured, experiment-driven exploration of how large lang
 
 The goal is not to build applications, but to understand:
 
-- How decoding strategies affect output
+- How decoding strategies influence output
 - Why responses vary across runs
-- When models hallucinate
-- Why constraints are probabilistic, not guarantees
+- When structure breaks
+- How randomness impacts reproducibility
+- Why constraints are probabilistic rather than guaranteed
 
-Each notebook isolates **one specific mechanism** of language model behavior.
+Each notebook isolates **one specific behavioral mechanism** of language models.
 
 > Philosophy:  
 > If you cannot explain why the model changed its output, you do not understand the model.
@@ -22,11 +23,11 @@ Each notebook isolates **one specific mechanism** of language model behavior.
 
 This project aims to:
 
-- Understand how LLMs generate tokens step by step
-- Observe the effect of sampling parameters
-- Measure determinism vs variability
-- Study constraint-following behavior
 - Build intuition about probabilistic text generation
+- Understand decoding strategies at a system level
+- Observe constraint-following behavior empirically
+- Study reproducibility and randomness
+- Connect model internals to real-world reliability concerns
 
 ---
 
@@ -36,12 +37,17 @@ This project aims to:
 llm-behavior-playground/
 │
 ├── 01_sampling_behavior.ipynb
-├── 02_...
-├── 03_...
-├── README.md
+├── 02_temperature_scaling_deep_dive.ipynb
+├── 03_top_k_vs_top_p_comparison.ipynb
+├── 04_determinism_vs_random_seeds.ipynb
+├── 05_constraint_following_and_format_robustness.ipynb
+└── README.md
 ```
 
-New notebooks will be added progressively as we explore deeper mechanisms.
+All notebooks use controlled experiments:
+- Same model
+- Same prompt (when relevant)
+- Only one variable changed at a time
 
 ---
 
@@ -51,109 +57,165 @@ New notebooks will be added progressively as we explore deeper mechanisms.
 
 How do decoding strategies influence output stability and variation?
 
-## What Was Tested
+## Experiments
 
 - Greedy decoding (deterministic)
 - Sampling with temperature
-- Top-p (nucleus sampling)
-- Multiple runs with different random seeds
+- Multiple runs with different seeds
 
-Everything else remained constant:
-- Same model
-- Same prompt
-- Same formatting constraints
+## Key Observations
 
----
+- Greedy decoding produces nearly identical outputs.
+- Sampling introduces controlled variation.
+- Temperature influences diversity and stability.
+- The model does not "change its mind" — decoding changes traversal of probabilities.
 
-## 📊 Observations
+## Core Insight
 
-- Greedy decoding produces nearly identical outputs across runs.
-- Sampling introduces variation even with the same prompt.
-- Higher temperature increases diversity but may degrade format adherence.
-- Constraints written in the prompt are not strict rules — they are probabilistic instructions.
+Decoding strategy determines how we explore the model's probability distribution.
+
+The model itself does not change — only how we sample from it.
 
 ---
 
-## 🧠 Key Insight
+# 📘 Notebook 02 — Temperature Scaling Deep Dive
 
-Language models do not “follow rules.”
+## 🔬 Question
 
-They predict the next token based on probability distributions.
+What does temperature actually do to generation?
 
-Decoding strategy determines:
+## Experiments
 
-- Stability
-- Creativity
-- Constraint adherence
-- Risk of hallucination
+- Temperature = 0.3
+- Temperature = 0.7
+- Temperature = 1.0
+- Temperature = 1.3
 
-Sampling does not change the model —  
-it changes how we traverse its probability space.
+## Key Observations
 
----
+- Low temperature → sharper distributions, more deterministic outputs.
+- Medium temperature → controlled lexical variation.
+- High temperature → increased diversity and structural drift.
+- Very high temperature increases format violations.
 
-# 🔜 Upcoming Notebooks
+## Core Insight
 
-The following experiments will progressively expand this repository:
+Temperature reshapes the probability distribution:
 
----
+- Lower temperature sharpens it.
+- Higher temperature flattens it.
 
-## 📘 Notebook 02 — Temperature Scaling Deep Dive
-
-- Visual intuition of probability flattening
-- Low vs high temperature comparison
-- Controlled diversity measurement
-- When temperature increases hallucination risk
+Flattened distributions increase diversity but reduce stability.
 
 ---
 
-## 📘 Notebook 03 — Top-k vs Top-p Comparison
+# 📘 Notebook 03 — Top-k vs Top-p Comparison
 
-- Fixed candidate filtering (top-k)
-- Probability mass filtering (top-p)
-- Distribution tail effects
-- Stability vs exploration tradeoff
+## 🔬 Question
 
----
+How do Top-k and Top-p sampling differ?
 
-## 📘 Notebook 04 — Determinism vs Random Seeds
+## Experiments
 
-- Why outputs differ across runs
-- The role of random seeds
-- When reproducibility breaks
-- Production implications
+- Baseline (no constraint)
+- Top-k = 10, 20, 50
+- Top-p = 0.8, 0.9, 0.95
 
----
+## Key Observations
 
-## 📘 Notebook 05 — Constraint Following & Format Robustness
+- Top-k keeps a fixed number of candidate tokens.
+- Smaller k strongly limits diversity.
+- Top-p keeps tokens up to a probability mass threshold.
+- Top-p adapts better when distributions are sharp or flat.
 
-- Why models break formatting rules
-- Prompt strength vs decoding strength
-- Structured output enforcement
-- Failure modes in real systems
+## Core Insight
 
----
+Top-k controls diversity by limiting candidate count.  
+Top-p controls diversity by limiting probability mass.
 
-## 📘 Notebook 06 — Hallucination Stress Test
-
-- Incomplete prompts
-- Ambiguous prompts
-- High temperature behavior
-- Confidence vs correctness
+Both restrict randomness, but in structurally different ways.
 
 ---
 
-# 🧩 Design Principle of This Repository
+# 📘 Notebook 04 — Determinism vs Random Seeds
 
-Each notebook changes **only one variable**.
+## 🔬 Question
 
-No hidden changes.
-No pipeline complexity.
-No multi-factor experiments.
+Why do outputs differ across runs?
 
-Behavior is isolated.
-Results are interpreted.
-Conclusions are explicit.
+## Experiments
+
+- Greedy decoding
+- Sampling with different seeds
+- Sampling with fixed seed
+
+## Key Observations
+
+- Greedy decoding is deterministic.
+- Sampling introduces randomness.
+- Changing the seed changes the output.
+- Fixing the seed restores reproducibility.
+
+## Core Insight
+
+Output variability is not mysterious.
+
+It is a direct consequence of stochastic sampling.
+
+Reproducibility requires:
+- Fixed seed
+- Fixed decoding parameters
+- Stable environment
+
+---
+
+# 📘 Notebook 05 — Constraint Following & Format Robustness
+
+## 🔬 Question
+
+How reliably does the model follow strict output constraints?
+
+## Experiments
+
+- Rule-based prompt
+- Template-based prompt
+- Greedy vs Sampling
+- Multiple seeds
+- Bullet count validation
+
+## Key Observations
+
+- Models may violate strict constraints.
+- Sampling increases violation probability.
+- Template prompts improve structure adherence.
+- Even with strict instructions, compliance is not guaranteed.
+
+## Core Insight
+
+Language models optimize probability, not rule compliance.
+
+Prompt constraints influence output but do not enforce it.
+
+In production systems, strict formatting often requires:
+- Post-generation validation
+- Structured parsing
+- Retry or correction loops
+
+---
+
+# 🧠 Overarching Lessons From This Repository
+
+Across all five notebooks, we observe:
+
+1. Decoding shapes output behavior.
+2. Temperature reshapes probability distributions.
+3. Top-k and Top-p restrict exploration differently.
+4. Seeds control reproducibility.
+5. Constraints are probabilistic, not guaranteed.
+
+LLMs are stochastic sequence predictors.
+
+Understanding generation mechanics is essential for building reliable AI systems.
 
 ---
 
@@ -166,27 +228,19 @@ Conclusions are explicit.
 
 ---
 
-# 🏁 Long-Term Goal
+# 🏁 Final Note
 
-By the end of this repository, we aim to understand:
+This repository is not a model showcase.
 
-- How generation actually works
-- Why models sometimes appear intelligent
-- Why they sometimes fail unpredictably
-- How decoding decisions affect system reliability
+It is a behavioral study of language models.
 
-This repository complements:
+Understanding how LLMs generate text is the foundation for:
 
-- Retrieval-Augmented Generation (RAG) evaluation
-- System-level LLM architecture understanding
-- Production-oriented model reasoning
+- Reliable system design
+- Robust structured outputs
+- Safe deployment
+- Advanced RAG architectures
 
----
+The goal is not to trust the model.
 
-## 📌 Final Note
-
-This is not a model showcase.
-
-This is a controlled behavioral study of language models.
-
-Understanding generation mechanics is the foundation of building reliable AI systems.
+The goal is to understand it.
