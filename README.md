@@ -1,246 +1,54 @@
-# 🧠 LLM Behavior Playground
+# LLM Behavior Playground
 
-## 📌 Overview
+Avant de comprendre les défauts d'un LLM, il faut comprendre comment il réfléchit.
+Ce projet observe le comportement du modèle de l'intérieur — pas ses erreurs, ses mécanismes.
 
-This repository is a structured, experiment-driven exploration of how large language models (LLMs) actually generate text.
+## Ce que j'ai exploré
 
-The goal is not to build applications, but to understand:
+**Notebook 01 — Sampling & Decoding**
+Un LLM génère du texte token par token. À chaque étape, il calcule une distribution
+de probabilités sur tout son vocabulaire et choisit le token suivant.
 
-- How decoding strategies influence output
-- Why responses vary across runs
-- When structure breaks
-- How randomness impacts reproducibility
-- Why constraints are probabilistic rather than guaranteed
+- **Greedy decoding** : à chaque étape, on prend le token le plus probable.
+  Résultat : déterministe, stable, mais répétitif.
+- **Sampling** : on tire au sort dans la distribution de probabilités.
+  Résultat : varié, créatif, parfois incohérent.
 
-Each notebook isolates **one specific behavioral mechanism** of language models.
+Leçon : le modèle ne change pas — c'est la stratégie de décodage
+qui change comment on explore ses probabilités.
 
-> Philosophy:  
-> If you cannot explain why the model changed its output, you do not understand the model.
+**Notebook 02 — Temperature**
+La température reshapes la distribution de probabilités avant le sampling.
+Basse (0.1-0.3) → distribution pointue, le modèle est prévisible.
+Haute (1.0+) → distribution plate, le modèle devient créatif mais instable.
+C'est le curseur entre déterminisme et créativité.
 
----
+**Notebook 03 — Top-k vs Top-p**
+Deux façons de contraindre le vocabulaire à chaque étape :
+- **Top-k** : garde uniquement les k tokens les plus probables (nombre fixe).
+- **Top-p** : garde les tokens jusqu'à atteindre un seuil de probabilité cumulée (adaptatif).
+Top-p s'adapte mieux quand la distribution est très plate ou très pointue.
 
-## 🎯 Objectives
+**Notebook 04 — Seeds et déterminisme**
+Quand on utilise le sampling, le modèle tire au sort — donc deux runs
+donnent des résultats différents.
 
-This project aims to:
+Un **seed** c'est la graine du générateur aléatoire. Fixer le seed fixe
+le tirage au sort, ce qui rend les résultats reproductibles.
+Sans seed fixé : chaque run est unique. Avec seed fixé : résultats identiques à chaque fois.
 
-- Build intuition about probabilistic text generation
-- Understand decoding strategies at a system level
-- Observe constraint-following behavior empirically
-- Study reproducibility and randomness
-- Connect model internals to real-world reliability concerns
+**Notebook 05 — Constraint following**
+Est-ce que le modèle suit vraiment les instructions de format ?
+Réponse : pas toujours. Le sampling augmente les violations.
+Un LLM optimise des probabilités, pas des règles — d'où la nécessité
+de validation et retry en production.
 
----
+## Ce que j'ai compris en le buildant
 
-## 📂 Repository Structure
+Ces 5 notebooks ont posé les bases de tout ce qui a suivi.
+Comprendre la température, les seeds et le constraint following
+était nécessaire avant de mesurer pourquoi les LLMs échouent dans LLM-Reliability-Layer.
 
-```
-llm-behavior-playground/
-│
-├── 01_sampling_behavior.ipynb
-├── 02_temperature_scaling_deep_dive.ipynb
-├── 03_top_k_vs_top_p_comparison.ipynb
-├── 04_determinism_vs_random_seeds.ipynb
-├── 05_constraint_following_and_format_robustness.ipynb
-└── README.md
-```
+## Stack
 
-All notebooks use controlled experiments:
-- Same model
-- Same prompt (when relevant)
-- Only one variable changed at a time
-
----
-
-# 📘 Notebook 01 — Sampling & Decoding Behavior
-
-## 🔬 Question
-
-How do decoding strategies influence output stability and variation?
-
-## Experiments
-
-- Greedy decoding (deterministic)
-- Sampling with temperature
-- Multiple runs with different seeds
-
-## Key Observations
-
-- Greedy decoding produces nearly identical outputs.
-- Sampling introduces controlled variation.
-- Temperature influences diversity and stability.
-- The model does not "change its mind" — decoding changes traversal of probabilities.
-
-## Core Insight
-
-Decoding strategy determines how we explore the model's probability distribution.
-
-The model itself does not change — only how we sample from it.
-
----
-
-# 📘 Notebook 02 — Temperature Scaling Deep Dive
-
-## 🔬 Question
-
-What does temperature actually do to generation?
-
-## Experiments
-
-- Temperature = 0.3
-- Temperature = 0.7
-- Temperature = 1.0
-- Temperature = 1.3
-
-## Key Observations
-
-- Low temperature → sharper distributions, more deterministic outputs.
-- Medium temperature → controlled lexical variation.
-- High temperature → increased diversity and structural drift.
-- Very high temperature increases format violations.
-
-## Core Insight
-
-Temperature reshapes the probability distribution:
-
-- Lower temperature sharpens it.
-- Higher temperature flattens it.
-
-Flattened distributions increase diversity but reduce stability.
-
----
-
-# 📘 Notebook 03 — Top-k vs Top-p Comparison
-
-## 🔬 Question
-
-How do Top-k and Top-p sampling differ?
-
-## Experiments
-
-- Baseline (no constraint)
-- Top-k = 10, 20, 50
-- Top-p = 0.8, 0.9, 0.95
-
-## Key Observations
-
-- Top-k keeps a fixed number of candidate tokens.
-- Smaller k strongly limits diversity.
-- Top-p keeps tokens up to a probability mass threshold.
-- Top-p adapts better when distributions are sharp or flat.
-
-## Core Insight
-
-Top-k controls diversity by limiting candidate count.  
-Top-p controls diversity by limiting probability mass.
-
-Both restrict randomness, but in structurally different ways.
-
----
-
-# 📘 Notebook 04 — Determinism vs Random Seeds
-
-## 🔬 Question
-
-Why do outputs differ across runs?
-
-## Experiments
-
-- Greedy decoding
-- Sampling with different seeds
-- Sampling with fixed seed
-
-## Key Observations
-
-- Greedy decoding is deterministic.
-- Sampling introduces randomness.
-- Changing the seed changes the output.
-- Fixing the seed restores reproducibility.
-
-## Core Insight
-
-Output variability is not mysterious.
-
-It is a direct consequence of stochastic sampling.
-
-Reproducibility requires:
-- Fixed seed
-- Fixed decoding parameters
-- Stable environment
-
----
-
-# 📘 Notebook 05 — Constraint Following & Format Robustness
-
-## 🔬 Question
-
-How reliably does the model follow strict output constraints?
-
-## Experiments
-
-- Rule-based prompt
-- Template-based prompt
-- Greedy vs Sampling
-- Multiple seeds
-- Bullet count validation
-
-## Key Observations
-
-- Models may violate strict constraints.
-- Sampling increases violation probability.
-- Template prompts improve structure adherence.
-- Even with strict instructions, compliance is not guaranteed.
-
-## Core Insight
-
-Language models optimize probability, not rule compliance.
-
-Prompt constraints influence output but do not enforce it.
-
-In production systems, strict formatting often requires:
-- Post-generation validation
-- Structured parsing
-- Retry or correction loops
-
----
-
-# 🧠 Overarching Lessons From This Repository
-
-Across all five notebooks, we observe:
-
-1. Decoding shapes output behavior.
-2. Temperature reshapes probability distributions.
-3. Top-k and Top-p restrict exploration differently.
-4. Seeds control reproducibility.
-5. Constraints are probabilistic, not guaranteed.
-
-LLMs are stochastic sequence predictors.
-
-Understanding generation mechanics is essential for building reliable AI systems.
-
----
-
-# 🔬 Tools Used
-
-- Hugging Face Transformers
-- Instruction-tuned open-source models
-- Controlled decoding parameters
-- Google Colab (GPU)
-
----
-
-# 🏁 Final Note
-
-This repository is not a model showcase.
-
-It is a behavioral study of language models.
-
-Understanding how LLMs generate text is the foundation for:
-
-- Reliable system design
-- Robust structured outputs
-- Safe deployment
-- Advanced RAG architectures
-
-The goal is not to trust the model.
-
-The goal is to understand it.
+Python · HuggingFace Transformers · Google Colab
